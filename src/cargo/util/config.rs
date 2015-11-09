@@ -488,9 +488,25 @@ fn determine_paths(cwd: &Path) -> Option<Paths> {
         fs::metadata(&path).ok().map(|_| path)
     }
 
+    // Strategy to determine where to put files:
+    //
+    // 1) Use the environment variable CARGO_HOME if it exists.
+    // 2) Use the XDG specification if it exists.
+    // 3) Use the legacy location (~/.cargo) if it exists.
+    // 4) Fall back to the XDG specification if all of the above things fail.
+
+    // 1)
+    if let Some(v) = env::var_os("CARGO_HOME").map(|p| cwd.join(p)) {
+        return Some(Paths {
+            bin: v.clone(),
+            cache: v.clone(),
+            config: v,
+            additional_configs: vec![],
+        });
+    }
+
     let user_home = if let Some(p) = env::home_dir() { p } else { return None; };
 
-    let home_var = env::var_os("CARGO_HOME").map(|home| cwd.join(home));
     let xdg = xdg::BaseDirectories::with_prefix("cargo");
     let legacy = user_home.join(".cargo");
 
@@ -502,26 +518,13 @@ fn determine_paths(cwd: &Path) -> Option<Paths> {
     let mut bin: Option<PathBuf>;
     let mut cache: Option<PathBuf>;
     let mut config: Option<PathBuf>;
-    let additional_configs: Option<Vec<PathBuf>>;
-
-    // Strategy to determine where to put files:
-    //
-    // 1) Use the environment variable CARGO_HOME if it exists.
-    // 2) Use the XDG specification if it exists.
-    // 3) Use the legacy location (~/.cargo) if it exists.
-    // 4) Fall back to the XDG specification if all of the above things fail.
-
-    // 1)
-    bin = home_var.clone();
-    cache = home_var.clone();
-    config = home_var.clone();
-    additional_configs = home_var.map(|_| vec![]);
+    let additional_configs: Vec<PathBuf>;
 
     // 2)
-    bin = bin.or_else(|| path_exists(bin_xdgish.clone()));
-    cache = cache.or_else(|| path_exists(cache_xdg.clone()));
-    config = config.or_else(|| path_exists(config_xdg.clone()));
-    let additional_configs = additional_configs.unwrap_or(additional_configs_xdg);
+    bin = path_exists(bin_xdgish.clone());
+    cache = path_exists(cache_xdg.clone());
+    config = path_exists(config_xdg.clone());
+    additional_configs = additional_configs_xdg;
 
     // 3)
     if let Some(l) = path_exists(legacy) {
