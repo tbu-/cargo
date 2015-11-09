@@ -333,6 +333,6 @@ fn resolve_root(flag: Option<&str>, config: &Config) -> CargoResult<PathBuf> {
     }).or_else(|| {
         config_root.clone().map(|(v, _)| PathBuf::from(v))
     }).unwrap_or_else(|| {
-        config.home().to_owned()
+        config.bin_path().to_owned()
     }))
 }
